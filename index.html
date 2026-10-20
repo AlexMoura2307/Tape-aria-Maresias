@@ -8,7 +8,34 @@ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 function persist(){localStorage.setItem(KEY,JSON.stringify(entries))}
 function message(s){const m=document.getElementById('msg');m.textContent=s;m.classList.remove('hidden')}
 function field(name,label,val='',large=false,mic=true){let input=large?'<textarea id="'+name+'">'+esc(val)+'</textarea>':'<input id="'+name+'" value="'+esc(val)+'">';return '<label for="'+name+'">'+label+'</label><div class="withMic">'+input+(mic?'<button type="button" class="mic" aria-label="Ditar '+label+'" onclick="dictate(\''+name+'\',this)">🎙️</button>':'')+'</div>'}
-function dictate(id,btn){let SR=window.SpeechRecognition||window.webkitSpeechRecognition;let target=document.getElementById(id);if(!target)return;if(!window.isSecureContext){message('O ditado requer HTTPS. Abra o endereço publicado no Render, não um arquivo baixado.');return}if(!SR){message('O reconhecimento de voz não é compatível com este navegador. Use Chrome atualizado ou microfone do teclado.');return}let rec=new SR();rec.lang='pt-BR';rec.interimResults=false;rec.continuous=false;btn.textContent='🔴';rec.onresult=e=>{const s=Array.from(e.results).map(r=>r[0].transcript).join(' ');target.value=(target.value.trim()+' '+s).trim();target.dispatchEvent(new Event('input'));message('Texto reconhecido. Confira antes de salvar.')};rec.onerror=e=>message('Microfone: '+e.error+'. Verifique permissão do site no Chrome.');rec.onend=()=>btn.textContent='🎙️';try{rec.start()}catch(e){message('Não foi possível iniciar o microfone: '+e.message)}}
+let activeRecognition=null,activeMicButton=null;
+function resetMic(){if(activeMicButton){activeMicButton.textContent='🎙️';activeMicButton.setAttribute('aria-pressed','false')}activeRecognition=null;activeMicButton=null}
+function dictate(id,btn){
+ const SR=window.SpeechRecognition||window.webkitSpeechRecognition, target=document.getElementById(id);
+ if(!target)return;
+ if(activeRecognition){const previous=activeRecognition;previous._userStopped=true;previous.stop();if(activeMicButton===btn){message('Ditado encerrado. Confira o texto.');return}}
+ if(!window.isSecureContext){message('Abra pelo link HTTPS do Render, e não pelo arquivo baixado.');return}
+ if(!SR){message('Este navegador não disponibiliza reconhecimento de voz. Abra no Chrome diretamente ou use o microfone do teclado Android.');return}
+ const rec=new SR();activeRecognition=rec;activeMicButton=btn;rec.lang='pt-BR';rec.interimResults=false;rec.continuous=false;rec.maxAlternatives=1;
+ btn.textContent='⏳';btn.setAttribute('aria-pressed','true');
+ rec.onstart=()=>{if(activeRecognition===rec){btn.textContent='🔴';message('Ouvindo... Fale agora. Toque de novo para encerrar.')}};
+ rec.onresult=e=>{if(activeRecognition!==rec)return;const t=Array.from(e.results).map(r=>r[0].transcript).join(' ');target.value=(target.value.trim()+' '+t).trim();target.dispatchEvent(new Event('input',{bubbles:true}));message('Texto reconhecido. Confira antes de salvar.')};
+ rec.onerror=e=>{
+   if(activeRecognition!==rec)return;
+   const explanations={
+    'not-allowed':'Acesso ao microfone negado. No Chrome, abra Configurações do site e permita Microfone.',
+    'service-not-allowed':'O serviço de reconhecimento de voz foi bloqueado neste navegador.',
+    'audio-capture':'O Chrome não conseguiu captar o áudio. Verifique se outro aplicativo está usando o microfone.',
+    'network':'O serviço de reconhecimento de voz não conseguiu se conectar. Verifique sua internet.',
+    'no-speech':'Nenhuma fala foi detectada. Toque no microfone e tente novamente.',
+    'language-not-supported':'O reconhecimento de voz em português não está disponível neste aparelho.',
+    'aborted':'O reconhecimento foi interrompido. Abra o link no Chrome diretamente (não no navegador interno do ChatGPT/WhatsApp) e tente novamente.'
+   };
+   message(rec._userStopped?'Ditado encerrado.':(explanations[e.error]||('Falha no reconhecimento: '+e.error)));
+ };
+ rec.onend=()=>{if(activeRecognition===rec)resetMic()};
+ try{rec.start()}catch(e){resetMic();message('Não foi possível iniciar o ditado: '+e.message)}
+}
 function home(){current=null;document.getElementById('view').innerHTML='<div class="panel"><h2>Orçamentos e serviços</h2><p class="muted">Dados armazenados neste navegador. Faça backups regularmente.</p><div class="actions noprint"><button onclick="start()" class="primary">＋ Novo orçamento</button><button onclick="backup()">Exportar backup</button><button onclick="document.getElementById(\'import\').click()">Importar backup</button><input id="import" class="hidden" type="file" accept=".json" onchange="importBackup(this)"></div>'+entries.map(e=>'<div class="item"><b>Nº '+esc(e.id)+' — '+esc(e.cliente)+'</b><p>'+esc(e.local||'')+' · '+esc(e.status)+'</p><button onclick="edit('+e.id+')">Abrir / Editar</button> <button onclick="printBudget('+e.id+')">PDF</button></div>').join('')+'</div>'}
 function fresh(){return{id:Math.max(0,...entries.map(e=>Number(e.id)||0))+1,status:'Em elaboração',data:new Date().toISOString().slice(0,10),options:[{servico:'',material:'',valor:''}]}}
 function start(){editForm(fresh())}function edit(id){let e=entries.find(x=>x.id===id);if(e)editForm(e)}
