@@ -14,6 +14,7 @@
  #paper .pdf-line{min-height:24px;line-height:1.55;border-bottom:none;white-space:normal;overflow-wrap:anywhere}
  #paper .pdf-notes{margin-top:15px;line-height:1.5}
  #paper .pdf-notes>div+div{margin-top:7px}
+ #paper .pdf-notes,#paper .pdf-notes div{border:0!important;text-decoration:none!important}
  #paper .pdf-total{position:absolute;bottom:32mm;left:19mm;right:19mm;background:#102e4c!important;color:#fff!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;padding:15px 12px;display:flex;justify-content:space-between;gap:12px;align-items:center;font-size:15px}
  #paper .pdf-total strong{white-space:nowrap;color:#fff!important;font-size:19px} #paper .pdf-total span{color:#fff!important}
  #paper .pdf-footer{position:absolute;bottom:9mm;left:19mm;right:19mm;text-align:left;border-top:2px solid #be9a50;padding-top:7px;font-size:15px;line-height:1.55}
@@ -30,6 +31,7 @@
 #paper.preview-active .pdf-line{min-height:26px;line-height:1.55;white-space:normal;overflow-wrap:anywhere}
 #paper.preview-active .pdf-notes{margin-top:22px;line-height:1.6}
 #paper.preview-active .pdf-notes>div+div{margin-top:10px}
+#paper.preview-active .pdf-notes,#paper.preview-active .pdf-notes div{border:0!important;text-decoration:none!important}
 #paper.preview-active .pdf-total{position:absolute;bottom:145px;left:7%;right:7%;background:#102e4c;color:#fff;padding:16px 14px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;font-size:15px}
 #paper.preview-active .pdf-total strong{font-size:20px}
 #paper.preview-active .pdf-footer{position:absolute;bottom:35px;left:7%;right:7%;border-top:2px solid #be9a50;padding-top:10px;line-height:1.55;font-size:15px}
@@ -107,9 +109,10 @@ function printBudget(id){
  const capitalize=v=>String(v??'').replace(/(^|[.!?]\s+|\n\s*)([a-zà-öø-ÿ])/g,(m,p,c)=>p+c.toLocaleUpperCase('pt-BR'));
  const txt=v=>esc(capitalize(v)).replace(/\n/g,'<br>');
  const lines=v=>{const rows=String(v||'').split('\n');return rows.filter(r=>r.trim()).map(r=>'<div class="pdf-line">'+txt(r)+'</div>').join('')};
+ const dateBR=v=>{const m=String(v||'').match(/^(\d{4})-(\d{2})-(\d{2})$/);return m?m[3]+'/'+m[2]+'/'+m[1]:esc(v||'')};
  const money=v=>{let n=String(v||'').replace(/[^\d,.-]/g,'');if(n.includes(','))n=n.replace(/\./g,'').replace(',','.');const num=Number(n);return Number.isFinite(num)?num.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}):esc(v||'0,00')};
  const options=e.options?.length?e.options:[{servico:'',material:'',valor:''}];
- document.getElementById('paper').innerHTML=options.map((o,i)=>'<article class="pdf-page"><div class="pdf-top"><h1>MARESIAS RESTAURAÇÕES DE ESTOFADOS</h1><div>ORÇAMENTO Nº '+esc(e.id)+(options.length>1?' — OPÇÃO '+(i+1):'')+'</div></div><div class="pdf-client"><b>Cliente:</b> '+esc(e.cliente)+'<br><b>Data:</b> '+esc(e.data)+'<br><b>Local:</b> '+esc(capitalize(e.local||''))+'</div><div class="pdf-section"><h3>DESCRIÇÃO DOS SERVIÇOS</h3>'+lines(o.servico)+'</div><div class="pdf-section"><h3>MATERIAIS</h3>'+lines(o.material)+'</div><div class="pdf-notes"><div><b>OBSERVAÇÕES:</b> '+txt(e.observacoes??'Válido por 10 dias.')+'</div><div><b>PRAZO PREVISTO DE ENTREGA:</b> '+txt(e.prazo??'Até 15 dias úteis')+'</div></div><div class="pdf-total"><span>TOTAL (MATERIAIS + MÃO DE OBRA)</span><strong>R$ '+money(o.valor)+'</strong></div><footer class="pdf-footer"><b>MARESIAS RESTAURAÇÕES DE ESTOFADOS</b><div>Alceu: (12) 99631-9697</div><div>Nelson: (12) 98215-8826</div></footer></article>').join('');
+ document.getElementById('paper').innerHTML=options.map((o,i)=>'<article class="pdf-page"><div class="pdf-top"><h1>MARESIAS RESTAURAÇÕES DE ESTOFADOS</h1><div>ORÇAMENTO Nº '+esc(e.id)+(options.length>1?' — OPÇÃO '+(i+1):'')+'</div></div><div class="pdf-client"><b>Cliente:</b> '+esc(e.cliente)+'<br><b>Data:</b> '+dateBR(e.data)+'<br><b>Local:</b> '+esc(capitalize(e.local||''))+'</div><div class="pdf-section"><h3>DESCRIÇÃO DOS SERVIÇOS</h3>'+lines(o.servico)+'</div><div class="pdf-section"><h3>MATERIAIS</h3>'+lines(o.material)+'</div><div class="pdf-notes"><div><b>OBSERVAÇÕES:</b> '+txt(e.observacoes??'Válido por 10 dias.')+'</div><div><b>PRAZO PREVISTO DE ENTREGA:</b> '+txt(e.prazo??'Até 15 dias úteis')+'</div></div><div class="pdf-total"><span>TOTAL (MATERIAIS + MÃO DE OBRA)</span><strong>R$ '+money(o.valor)+'</strong></div><footer class="pdf-footer"><b>MARESIAS RESTAURAÇÕES DE ESTOFADOS</b><div>Alceu: (12) 99631-9697</div><div>Nelson: (12) 98215-8826</div></footer></article>').join('');
  document.getElementById('view').innerHTML='<div class="panel preview-toolbar"><h2>Pré-visualização do orçamento Nº '+esc(e.id)+'</h2><p>Confira o orçamento antes de salvar em PDF.</p><div class="actions"><button onclick="edit('+Number(e.id)+')">← Voltar e editar</button><button class="primary" onclick="window.print()">Salvar em PDF</button><button style="background:#168447;color:#fff" onclick="sendWhatsApp('+Number(e.id)+')">📱 Enviar via WhatsApp</button><button onclick="home()">Orçamentos</button></div><div id="send-confirm" class="hidden"><p>Após enviar o PDF e a mensagem pelo WhatsApp:</p><button class="primary" onclick="confirmWhatsApp('+Number(e.id)+')">✓ Confirmar envio realizado</button></div></div>';
  document.getElementById('paper').classList.add('preview-active');
  document.getElementById('paper').scrollIntoView({behavior:'smooth',block:'start'});
