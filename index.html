@@ -104,7 +104,14 @@ async function prepareWhatsAppPNG(id){
    const copy=pages[i].cloneNode(true);
    const stage=document.createElement('div');
    stage.style.cssText='position:fixed;left:0;top:0;width:794px;z-index:-100;pointer-events:none';
-   copy.style.cssText='position:relative;display:block;width:794px;min-height:1122px;box-sizing:border-box;padding:45px 56px 210px;margin:0;background:#fff;color:#172c45;box-shadow:none;border-radius:0;font:16px Arial,sans-serif';
+   copy.style.cssText='position:relative;display:block;width:794px;min-height:1122px;box-sizing:border-box;padding:45px 7% 210px;margin:0;background:#fff;color:#172c45;box-shadow:none;border-radius:0;font:16px Arial,sans-serif';
+   stage.className='png-export-stage';
+   const original=pages[i];
+   const targetWidth=794;
+   const baseWidth=original.getBoundingClientRect().width||794;
+   const factor=targetWidth/baseWidth;
+   // Preserve the preview's responsive font sizing and geometry in the exported image.
+   copy.querySelectorAll('*').forEach(el=>{const source=original.querySelectorAll('*')[Array.prototype.indexOf.call(copy.querySelectorAll('*'),el)];if(!source)return;const cs=getComputedStyle(source);if(cs.fontSize)el.style.fontSize=cs.fontSize;if(cs.lineHeight&&cs.lineHeight!=='normal')el.style.lineHeight=cs.lineHeight;});
    stage.appendChild(copy);document.body.appendChild(stage);
    let canvas;
    try{canvas=await html2canvas(copy,{scale:2,backgroundColor:'#ffffff',useCORS:true,windowWidth:900})}
