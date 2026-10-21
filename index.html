@@ -38,7 +38,7 @@
 #paper.preview-active .pdf-footer b{display:block}
 @media(max-width:520px){#paper.preview-active{padding:0 6px}#paper.preview-active .pdf-page{padding:25px 6% 210px;font-size:15px;min-height:850px}#paper.preview-active .pdf-top h1{font-size:22px}#paper.preview-active .pdf-total{left:6%;right:6%;font-size:13px}#paper.preview-active .pdf-footer{left:6%;right:6%}}
 @media print{#paper.preview-active{display:block!important;max-width:none!important;margin:0!important;padding:0!important}#paper.preview-active .pdf-page{box-shadow:none!important;border-radius:0!important;margin:0!important;overflow:visible!important}}
-</style><script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script></head><body>
+</style><script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script></head><body>
 <header><h1>MARESIAS RESTAURAÇÕES DE ESTOFADOS</h1><small>Orçamentos e controle de serviços</small></header><nav><button onclick="home()">📋 Orçamentos</button><button onclick="start()">＋ Novo orçamento</button><button onclick="settings()">⚙ Empresa</button></nav>
 <main class="wrap"><div id="msg" class="hidden warn"></div><div id="view"></div></main><div id="paper"></div>
 <script>
@@ -88,6 +88,7 @@ function captureOptions(){current.options=current.options.map((o,i)=>({servico:d
 function renderOptions(){document.getElementById('options').innerHTML=current.options.map((o,i)=>'<div class="option"><h3>Orçamento '+(i+1)+'</h3>'+field('servico'+i,'Serviço a ser realizado',o.servico,true)+field('material'+i,'Material / tecido / cor / quantidade',o.material,true)+field('valor'+i,'Valor total (R$)',o.valor,false,false)+'</div>').join('')}
 function addOption(){captureOptions();current.options.push({servico:'',material:'',valor:''});renderOptions()}
 function save(){if(!current)return false;captureOptions();for(const n of ['cliente','telefone','local','endereco','data','status','prazo','pagamento','observacoes'])current[n]=document.getElementById(n).value;if(!current.cliente.trim()){message('Preencha o nome do cliente.');return false}let i=entries.findIndex(e=>e.id===current.id);if(i<0)entries.push(structuredClone(current));else entries[i]=structuredClone(current);persist();message('Orçamento salvo com sucesso.');return true}
+let preparedPNG=null;
 async function sendWhatsApp(id){
  const e=entries.find(x=>Number(x.id)===Number(id));if(!e)return;
  const btn=document.getElementById('send-whatsapp-btn');
@@ -100,7 +101,7 @@ async function sendWhatsApp(id){
   if(!pages.length)throw new Error('Pré-visualização não encontrada.');
   const msg='Olá, '+e.cliente+'! Segue seu orçamento.';
   window.maresiasLastShareMessage=msg;
-  try{await navigator.clipboard.writeText(msg)}catch(_){}
+  // Avoid clipboard awaits before share; Android requires a fresh user gesture.
   const files=[];
   for(let i=0;i<pages.length;i++){
    const copy=pages[i].cloneNode(true);
@@ -116,6 +117,7 @@ async function sendWhatsApp(id){
    const name='Orcamento-'+e.id+(pages.length>1?'-Opcao-'+(i+1):'')+'-Maresias.png';
    files.push(new File([blob],name,{type:'image/png'}));
   }
+  preparedPNG={id,files};
   if(navigator.share&&navigator.canShare&&navigator.canShare({files})){
    try{
     await navigator.share({files,title:'Orçamento '+e.id,text:msg});
