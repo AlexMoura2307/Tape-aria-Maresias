@@ -38,7 +38,7 @@
 #paper.preview-active .pdf-footer b{display:block}
 @media(max-width:520px){#paper.preview-active{padding:0 6px}#paper.preview-active .pdf-page{padding:25px 6% 210px;font-size:15px;min-height:850px}#paper.preview-active .pdf-top h1{font-size:22px}#paper.preview-active .pdf-total{left:6%;right:6%;font-size:13px}#paper.preview-active .pdf-footer{left:6%;right:6%}}
 @media print{#paper.preview-active{display:block!important;max-width:none!important;margin:0!important;padding:0!important}#paper.preview-active .pdf-page{box-shadow:none!important;border-radius:0!important;margin:0!important;overflow:visible!important}}
-</style></head><body>
+</style><script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script></head><body>
 <header><h1>MARESIAS RESTAURAÇÕES DE ESTOFADOS</h1><small>Orçamentos e controle de serviços</small></header><nav><button onclick="home()">📋 Orçamentos</button><button onclick="start()">＋ Novo orçamento</button><button onclick="settings()">⚙ Empresa</button></nav>
 <main class="wrap"><div id="msg" class="hidden warn"></div><div id="view"></div></main><div id="paper"></div>
 <script>
@@ -88,15 +88,44 @@ function captureOptions(){current.options=current.options.map((o,i)=>({servico:d
 function renderOptions(){document.getElementById('options').innerHTML=current.options.map((o,i)=>'<div class="option"><h3>Orçamento '+(i+1)+'</h3>'+field('servico'+i,'Serviço a ser realizado',o.servico,true)+field('material'+i,'Material / tecido / cor / quantidade',o.material,true)+field('valor'+i,'Valor total (R$)',o.valor,false,false)+'</div>').join('')}
 function addOption(){captureOptions();current.options.push({servico:'',material:'',valor:''});renderOptions()}
 function save(){if(!current)return false;captureOptions();for(const n of ['cliente','telefone','local','endereco','data','status','prazo','pagamento','observacoes'])current[n]=document.getElementById(n).value;if(!current.cliente.trim()){message('Preencha o nome do cliente.');return false}let i=entries.findIndex(e=>e.id===current.id);if(i<0)entries.push(structuredClone(current));else entries[i]=structuredClone(current);persist();message('Orçamento salvo com sucesso.');return true}
-function sendWhatsApp(id){
+async function sendWhatsApp(id){
  const e=entries.find(x=>Number(x.id)===Number(id));if(!e)return;
- const phone=String(e.telefone||'').replace(/[^0-9]/g,'');
- if(phone.length<10){message('Cadastre o WhatsApp do cliente antes de enviar.');return}
- const number=phone.startsWith('55')?phone:'55'+phone;
- const msg='Olá, '+e.cliente+'! Segue o orçamento nº '+e.id+' da Maresias Restaurações de Estofados. Confira o PDF anexado.';
- window.open('https://wa.me/'+number+'?text='+encodeURIComponent(msg),'_blank','noopener,noreferrer');
- document.getElementById('send-confirm').classList.remove('hidden');
- message('WhatsApp aberto. Salve e anexe o PDF, depois confirme o envio aqui.');
+ const btn=document.getElementById('send-whatsapp-btn');
+ if(btn){btn.disabled=true;btn.textContent='Gerando PDF...'}
+ try{
+  if(typeof html2pdf==='undefined')throw new Error('Gerador de PDF indisponível. Verifique sua conexão.');
+  const paper=document.getElementById('paper');
+  if(!paper.classList.contains('preview-active'))printBudget(id);
+  const pages=paper.querySelectorAll('.pdf-page');
+  if(!pages.length)throw new Error('Pré-visualização não encontrada.');
+  const filename='Orcamento-'+e.id+'-Maresias.pdf';
+  const options={margin:0,filename,image:{type:'jpeg',quality:0.98},html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff'},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},pagebreak:{mode:['css','legacy'],before:'.pdf-page:not(:first-child)'}};
+  const clone=paper.cloneNode(true);
+  clone.classList.add('preview-active');
+  clone.style.cssText='display:block;width:794px;max-width:794px;padding:0;margin:0;background:#fff';
+  clone.querySelectorAll('.pdf-page').forEach(page=>{page.style.width='794px';page.style.minHeight='1122px';page.style.margin='0';page.style.boxShadow='none';page.style.borderRadius='0';});
+  const staging=document.createElement('div');
+  staging.style.cssText='position:fixed;left:-10000px;top:0;width:794px;z-index:-1';
+  staging.appendChild(clone);document.body.appendChild(staging);
+  let blob;
+  try{blob=await html2pdf().set(options).from(clone).outputPdf('blob')}finally{staging.remove()}
+  if(!blob||blob.size<1000)throw new Error('O arquivo PDF não foi gerado corretamente.');
+  const file=new File([blob],filename,{type:'application/pdf'});
+  const msg='Olá, '+e.cliente+'! Segue seu orçamento.';
+  if(navigator.canShare&&navigator.canShare({files:[file]})&&navigator.share){
+   try{
+    await navigator.share({files:[file],title:'Orçamento '+e.id,text:msg});
+    document.getElementById('send-confirm').classList.remove('hidden');
+    message('PDF compartilhado. Confirme o envio somente depois de verificar o destinatário no WhatsApp.');
+    return;
+   }catch(err){if(err.name==='AbortError'){message('Compartilhamento cancelado. O status não foi alterado.');return}}
+  }
+  const url=URL.createObjectURL(blob),link=document.createElement('a');
+  link.href=url;link.download=filename;document.body.appendChild(link);link.click();link.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),60000);
+  message('Seu navegador não permite anexar PDF diretamente ao WhatsApp. O PDF foi baixado: anexe-o manualmente ao contato '+e.cliente+'.');
+ }catch(err){message('Não foi possível compartilhar o PDF: '+err.message)}
+ finally{if(btn){btn.disabled=false;btn.textContent='📱 Enviar via WhatsApp'}}
 }
 function confirmWhatsApp(id){
  if(!confirm('Você enviou o orçamento ao cliente pelo WhatsApp?'))return;
@@ -113,7 +142,7 @@ function printBudget(id){
  const money=v=>{let n=String(v||'').replace(/[^\d,.-]/g,'');if(n.includes(','))n=n.replace(/\./g,'').replace(',','.');const num=Number(n);return Number.isFinite(num)?num.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}):esc(v||'0,00')};
  const options=e.options?.length?e.options:[{servico:'',material:'',valor:''}];
  document.getElementById('paper').innerHTML=options.map((o,i)=>'<article class="pdf-page"><div class="pdf-top"><h1>MARESIAS RESTAURAÇÕES DE ESTOFADOS</h1><div>ORÇAMENTO Nº '+esc(e.id)+(options.length>1?' — OPÇÃO '+(i+1):'')+'</div></div><div class="pdf-client"><b>Cliente:</b> '+esc(e.cliente)+'<br><b>Data:</b> '+dateBR(e.data)+'<br><b>Local:</b> '+esc(capitalize(e.local||''))+'</div><div class="pdf-section"><h3>DESCRIÇÃO DOS SERVIÇOS</h3>'+lines(o.servico)+'</div><div class="pdf-section"><h3>MATERIAIS</h3>'+lines(o.material)+'</div><div class="pdf-notes"><div><b>OBSERVAÇÕES:</b> '+txt(e.observacoes??'Válido por 10 dias.')+'</div><div><b>PRAZO PREVISTO DE ENTREGA:</b> '+txt(e.prazo??'Até 15 dias úteis')+'</div></div><div class="pdf-total"><span>TOTAL (MATERIAIS + MÃO DE OBRA)</span><strong>R$ '+money(o.valor)+'</strong></div><footer class="pdf-footer"><b>MARESIAS RESTAURAÇÕES DE ESTOFADOS</b><div>Alceu: (12) 99631-9697</div><div>Nelson: (12) 98215-8826</div></footer></article>').join('');
- document.getElementById('view').innerHTML='<div class="panel preview-toolbar"><h2>Pré-visualização do orçamento Nº '+esc(e.id)+'</h2><p>Confira o orçamento antes de salvar em PDF.</p><div class="actions"><button onclick="edit('+Number(e.id)+')">← Voltar e editar</button><button class="primary" onclick="window.print()">Salvar em PDF</button><button style="background:#168447;color:#fff" onclick="sendWhatsApp('+Number(e.id)+')">📱 Enviar via WhatsApp</button><button onclick="home()">Orçamentos</button></div><div id="send-confirm" class="hidden"><p>Após enviar o PDF e a mensagem pelo WhatsApp:</p><button class="primary" onclick="confirmWhatsApp('+Number(e.id)+')">✓ Confirmar envio realizado</button></div></div>';
+ document.getElementById('view').innerHTML='<div class="panel preview-toolbar"><h2>Pré-visualização do orçamento Nº '+esc(e.id)+'</h2><p>Confira o orçamento antes de salvar em PDF.</p><div class="actions"><button onclick="edit('+Number(e.id)+')">← Voltar e editar</button><button class="primary" onclick="window.print()">Salvar em PDF</button><button style="background:#168447;color:#fff" id="send-whatsapp-btn" onclick="sendWhatsApp('+Number(e.id)+')">📱 Enviar via WhatsApp</button><button onclick="home()">Orçamentos</button></div><div id="send-confirm" class="hidden"><p>Após enviar o PDF e a mensagem pelo WhatsApp:</p><button class="primary" onclick="confirmWhatsApp('+Number(e.id)+')">✓ Confirmar envio realizado</button></div></div>';
  document.getElementById('paper').classList.add('preview-active');
  document.getElementById('paper').scrollIntoView({behavior:'smooth',block:'start'});
 }
