@@ -1,0 +1,18 @@
+{
+  "name": "Tapeçaria Maresias — Orçamentos",
+  "short_name": "Tapeçaria Maresias",
+  "description": "Orçamentos e controle de serviços",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f3f6f8",
+  "theme_color": "#0b2944",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
