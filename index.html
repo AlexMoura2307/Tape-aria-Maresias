@@ -155,7 +155,7 @@ async function prepareWhatsAppPNG(id){
    copy.classList.add('png-export-page');
    stage.appendChild(copy);document.body.appendChild(stage);
    let canvas;
-   try{canvas=await html2canvas(copy,{scale:1.15,backgroundColor:'#ffffff',useCORS:true,windowWidth:900})}
+   try{canvas=await html2canvas(copy,{scale:2,backgroundColor:'#ffffff',useCORS:true,windowWidth:900})}
    finally{stage.remove()}
    const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));
    if(!blob||blob.size<1000)throw new Error('Falha ao gerar PNG.');
