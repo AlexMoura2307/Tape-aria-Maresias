@@ -103,9 +103,10 @@ async function sendWhatsApp(id){
   const clone=paper.cloneNode(true);
   clone.classList.add('preview-active');
   clone.style.cssText='display:block;width:794px;max-width:794px;padding:0;margin:0;background:#fff';
-  clone.querySelectorAll('.pdf-page').forEach(page=>{page.style.width='794px';page.style.minHeight='1122px';page.style.margin='0';page.style.boxShadow='none';page.style.borderRadius='0';});
+  clone.querySelectorAll('.pdf-page').forEach(page=>{page.style.width='794px';page.style.minHeight='1122px';page.style.margin='0';page.style.boxShadow='none';page.style.borderRadius='0';page.style.boxSizing='border-box';page.style.padding='45px 56px 210px';});
+  // Preserve preview styling in the detached export; do not use off-screen clipping.
   const staging=document.createElement('div');
-  staging.style.cssText='position:fixed;left:-10000px;top:0;width:794px;z-index:-1';
+  staging.style.cssText='position:absolute;left:0;top:0;width:794px;opacity:0;pointer-events:none;z-index:-1';
   staging.appendChild(clone);document.body.appendChild(staging);
   let blob;
   try{blob=await html2pdf().set(options).from(clone).outputPdf('blob')}finally{staging.remove()}
